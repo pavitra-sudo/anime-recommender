@@ -1,0 +1,7 @@
+anienv/
+env/
+*.tar
+__pycache__/
+*.pyc
+.git
+.gitignore
