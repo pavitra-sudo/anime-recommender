@@ -1,21 +1,36 @@
 import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Load dataset once here (so you don't load it every time)
+# Load the dataset
 df = pd.read_csv("anime.csv")
 
-def get_simple_recommendations(anime_name, n=5):
-    if anime_name not in df['name'].values:
-        return ["Anime not found. Try another title."]
+# Fill missing genres with empty string
+df['genre'] = df['genre'].fillna('')
+
+# Vectorize genres using TF-IDF
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(df['genre'])
+
+# Compute cosine similarity matrix
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+# Map anime titles to index
+anime_indices = pd.Series(df.index, index=df['name']).drop_duplicates()
+
+def get_cosine_recommendations(title, n=5):
+    if title not in anime_indices:
+        return ["Anime not found."]
     
-    anime_genres = df[df['name'] == anime_name]['genre'].values[0]
-    if pd.isna(anime_genres):
-        return ["No genre info available for this anime."]
+    idx = anime_indices[title]
     
-    recommended = []
-    for _, row in df.iterrows():
-        if row['name'] != anime_name and pd.notna(row['genre']):
-            if any(genre in row['genre'] for genre in anime_genres.split(',')):
-                recommended.append(row['name'])
-            if len(recommended) >= n:
-                break
-    return recommended if recommended else ["No similar anime found."]
+    # Get similarity scores
+    sim_scores = list(enumerate(cosine_sim[idx]))
+    
+    # Sort by highest similarity (excluding itself)
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[1:n+1]
+    
+    # Get recommended anime indices
+    anime_indices_list = [i[0] for i in sim_scores]
+    
+    return df['name'].iloc[anime_indices_list].tolist()
